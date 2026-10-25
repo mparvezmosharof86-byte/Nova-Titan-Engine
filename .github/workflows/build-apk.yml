@@ -31,11 +31,10 @@ jobs:
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-    - name: Scaffold Nova Titan Android Project
+    - name: Scaffold Pure Native Android Project
       run: |
         mkdir -p app/src/main/java/com/novastudio24/titan/engine
         mkdir -p app/src/main/res/layout
-        mkdir -p app/src/main/res/values
 
         # 1. Settings Gradle
         cat << 'EOF' > settings.gradle
@@ -64,20 +63,7 @@ jobs:
         }
         EOF
 
-        # 3. Values
-        cat << 'EOF' > app/src/main/res/values/strings.xml
-        <resources>
-            <string name="app_name">Nova Titan Engine</string>
-        </resources>
-        EOF
-
-        cat << 'EOF' > app/src/main/res/values/themes.xml
-        <resources>
-            <style name="Theme.NovaTitan" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
-        </resources>
-        EOF
-
-        # 4. App build.gradle
+        # 3. App build.gradle (Zero Heavy Dependencies)
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application'
@@ -110,12 +96,11 @@ jobs:
         }
 
         dependencies {
-            implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.11.0'
+            // Pure Native Android SDK Only (No external library dependencies)
         }
         EOF
 
-        # 5. AndroidManifest.xml
+        # 4. AndroidManifest.xml
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -126,8 +111,8 @@ jobs:
             <application
                 android:allowBackup="true"
                 android:icon="@android:drawable/sym_def_app_icon"
-                android:label="@string/app_name"
-                android:theme="@style/Theme.NovaTitan">
+                android:label="Nova Titan Engine"
+                android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
                 <activity
                     android:name=".MainActivity"
                     android:exported="true">
@@ -140,7 +125,7 @@ jobs:
         </manifest>
         EOF
 
-        # 6. Dashboard Layout
+        # 5. Dashboard Layout
         cat << 'EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -194,7 +179,7 @@ jobs:
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="• Nova Titan (7B): Port 8080\n• Nova Spark (1.5B): Port 8081\n• Firebase Realtime Bridge: STANDBY"
+                    android:text="Model 1: Nova Titan (7B Coder) - Port 8080&#10;Model 2: Nova Spark (1.5B Rapid) - Port 8081&#10;Firebase Realtime Bridge: STANDBY"
                     android:textColor="#C9D1D9"
                     android:textSize="13sp"
                     android:layout_marginTop="8dp" />
@@ -205,7 +190,6 @@ jobs:
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="START DUAL ENGINE SERVICE"
-                android:backgroundTint="#238636"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold" />
 
@@ -216,24 +200,24 @@ jobs:
                 android:layout_weight="1"
                 android:background="#010409"
                 android:textColor="#7EE787"
-                android:fontFamily="monospace"
                 android:textSize="11sp"
                 android:padding="12dp"
                 android:layout_marginTop="16dp"
-                android:text="[System] Nova Titan Engine Ready.\n[Ports] 8080 (Titan), 8081 (Spark)." />
+                android:text="[System] Nova Titan Engine Ready.&#10;[Ports] 8080 (Titan), 8081 (Spark)." />
         </LinearLayout>
         EOF
 
-        # 7. MainActivity
+        # 6. MainActivity.java (Pure Android Native)
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/MainActivity.java
         package com.novastudio24.titan.engine;
 
+        import android.app.Activity;
         import android.os.Bundle;
         import android.widget.Button;
         import android.widget.TextView;
-        import androidx.appcompat.app.AppCompatActivity;
+        import android.graphics.Color;
 
-        public class MainActivity extends AppCompatActivity {
+        public class MainActivity extends Activity {
             private boolean isRunning = false;
 
             @Override
@@ -243,17 +227,18 @@ jobs:
 
                 Button btnRun = findViewById(R.id.btnRun);
                 TextView tvLogs = findViewById(R.id.tvLogs);
+                btnRun.setBackgroundColor(Color.parseColor("#238636"));
 
                 btnRun.setOnClickListener(v -> {
                     if (!isRunning) {
                         isRunning = true;
                         btnRun.setText("STOP DUAL ENGINE SERVICE");
-                        btnRun.setBackgroundColor(0xFFDA3633);
+                        btnRun.setBackgroundColor(Color.parseColor("#DA3633"));
                         tvLogs.append("\n[+] Service Started on Ports 8080 & 8081.");
                     } else {
                         isRunning = false;
                         btnRun.setText("START DUAL ENGINE SERVICE");
-                        btnRun.setBackgroundColor(0xFF238636);
+                        btnRun.setBackgroundColor(Color.parseColor("#238636"));
                         tvLogs.append("\n[!] Service Stopped.");
                     }
                 });
@@ -275,7 +260,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
-        tag_name: v1.0.3
-        name: "Nova Titan Engine v1.0.3"
-        body: "Production Engine APK by Nova Studio 24."
+        tag_name: v1.0.4
+        name: "Nova Titan Engine v1.0.4"
+        body: "Ultra-Lightweight Production Engine APK by Nova Studio 24."
         files: app/build/outputs/apk/debug/app-debug.apk
