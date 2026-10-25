@@ -3,21 +3,20 @@ set -e
 
 echo "=================================================="
 echo "   NOVA DUAL-ENGINE SETUP (Nova Studio 24)"
-echo "   1. Nova Titan (7B Heavy Coder)"
+echo "   1. Nova Titan (7B Heavy Pro Coder)"
 echo "   2. Nova Spark (1.5B Rapid Planner)"
 echo "=================================================="
 
 # ১. টারমাক্স প্যাকেজ ও টুলস ইনস্টল
 echo "[+] Updating Termux and installing base tools..."
 pkg update -y && pkg upgrade -y
-pkg install -y git cmake clang ninja python wget curl
+pkg install -y git cmake clang ninja python python-pip wget curl
 
-# ২. পাইথনের লাইব্রেরি ইনস্টল
+# ২. পাইথনের লাইব্রেরি ইনস্টল (pip upgrade বাদ দিয়ে সেফ মোড)
 echo "[+] Installing Python bridge dependencies..."
-pip install --upgrade pip
-pip install requests firebase-admin
+pip install requests firebase-admin --break-system-packages || pip install requests firebase-admin
 
-# ৩. C++ Llama.cpp বিল্ড করা
+# ৩. C++ Llama.cpp ক্লোন ও স্ন্যাপড্রাগনের জন্য বিল্ড
 if [ ! -d "llama.cpp" ]; then
     echo "[+] Cloning llama.cpp repository..."
     git clone https://github.com/ggerganov/llama.cpp
@@ -38,6 +37,7 @@ TITAN_URL="https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/ma
 
 if [ ! -f "$TITAN_FILE" ]; then
     echo "[+] Downloading Model 1: Nova Titan 7B (~4.6 GB)..."
+    echo "[!] Full High-Power AI Model downloading via Wi-Fi..."
     wget -c "$TITAN_URL" -O "$TITAN_FILE"
 else
     echo "[+] Model 1 (Nova Titan 7B) already exists!"
@@ -56,4 +56,5 @@ fi
 
 echo "=================================================="
 echo " [SUCCESS] Both Titan (7B) & Spark (1.5B) are Ready!"
+echo " Next run: bash run_engine.sh"
 echo "=================================================="
