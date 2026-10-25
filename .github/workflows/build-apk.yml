@@ -22,6 +22,11 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Setup Stable Gradle 8.5
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.5'
+
     - name: Accept Android SDK Licenses
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
@@ -55,11 +60,11 @@ jobs:
         # 2. Root build.gradle
         cat << 'EOF' > build.gradle
         plugins {
-            id 'com.android.application' version '8.1.4' apply false
+            id 'com.android.application' version '8.2.2' apply false
         }
         EOF
 
-        # 3. Values (strings & colors)
+        # 3. Values
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
             <string name="app_name">Nova Titan Engine</string>
@@ -106,7 +111,7 @@ jobs:
 
         dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.10.0'
+            implementation 'com.google.android.material:material:1.11.0'
         }
         EOF
 
@@ -219,7 +224,7 @@ jobs:
         </LinearLayout>
         EOF
 
-        # 7. MainActivity.java
+        # 7. MainActivity
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/MainActivity.java
         package com.novastudio24.titan.engine;
 
@@ -256,13 +261,9 @@ jobs:
         }
         EOF
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-
     - name: Build Android APK
       run: |
-        gradle wrapper --gradle-version 8.4
-        ./gradlew assembleDebug --no-daemon --stacktrace
+        gradle assembleDebug --no-daemon
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
@@ -274,7 +275,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
-        tag_name: v1.0.2
-        name: "Nova Titan Engine v1.0.2"
+        tag_name: v1.0.3
+        name: "Nova Titan Engine v1.0.3"
         body: "Production Engine APK by Nova Studio 24."
         files: app/build/outputs/apk/debug/app-debug.apk
