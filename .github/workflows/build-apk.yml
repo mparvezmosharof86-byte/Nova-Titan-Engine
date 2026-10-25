@@ -22,6 +22,10 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Accept Android SDK Licenses
+      run: |
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
     - name: Scaffold Nova Titan Android Project
       run: |
         mkdir -p app/src/main/java/com/novastudio24/titan/engine
@@ -55,7 +59,20 @@ jobs:
         }
         EOF
 
-        # 3. App build.gradle
+        # 3. Values (strings & colors)
+        cat << 'EOF' > app/src/main/res/values/strings.xml
+        <resources>
+            <string name="app_name">Nova Titan Engine</string>
+        </resources>
+        EOF
+
+        cat << 'EOF' > app/src/main/res/values/themes.xml
+        <resources>
+            <style name="Theme.NovaTitan" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+        </resources>
+        EOF
+
+        # 4. App build.gradle
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application'
@@ -74,11 +91,11 @@ jobs:
             }
 
             buildTypes {
-                release {
-                    minifyEnabled false
-                }
                 debug {
                     debuggable true
+                }
+                release {
+                    minifyEnabled false
                 }
             }
             compileOptions {
@@ -93,7 +110,7 @@ jobs:
         }
         EOF
 
-        # 4. AndroidManifest.xml
+        # 5. AndroidManifest.xml
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -104,8 +121,8 @@ jobs:
             <application
                 android:allowBackup="true"
                 android:icon="@android:drawable/sym_def_app_icon"
-                android:label="Nova Titan Engine"
-                android:theme="@style/Theme.AppCompat.NoActionBar">
+                android:label="@string/app_name"
+                android:theme="@style/Theme.NovaTitan">
                 <activity
                     android:name=".MainActivity"
                     android:exported="true">
@@ -118,7 +135,7 @@ jobs:
         </manifest>
         EOF
 
-        # 5. Dashboard UI Layout
+        # 6. Dashboard Layout
         cat << 'EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -134,15 +151,14 @@ jobs:
                 android:text="NOVA STUDIO 24"
                 android:textColor="#58A6FF"
                 android:textSize="14sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.1" />
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Nova Titan Engine"
                 android:textColor="#FFFFFF"
-                android:textSize="26sp"
+                android:textSize="24sp"
                 android:textStyle="bold"
                 android:layout_marginTop="4dp" />
 
@@ -152,7 +168,7 @@ jobs:
                 android:text="Package: com.novastudio24.titan.engine"
                 android:textColor="#8B949E"
                 android:textSize="12sp"
-                android:layout_marginBottom="24dp" />
+                android:layout_marginBottom="20dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -168,12 +184,12 @@ jobs:
                     android:text="ENGINE STATUS: ACTIVE"
                     android:textColor="#3FB950"
                     android:textStyle="bold"
-                    android:textSize="16sp" />
+                    android:textSize="15sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="• Model 1: Nova Titan (7B Coder) - Port 8080\n• Model 2: Nova Spark (1.5B Rapid) - Port 8081\n• Firebase Realtime Bridge: STANDBY"
+                    android:text="• Nova Titan (7B): Port 8080\n• Nova Spark (1.5B): Port 8081\n• Firebase Realtime Bridge: STANDBY"
                     android:textColor="#C9D1D9"
                     android:textSize="13sp"
                     android:layout_marginTop="8dp" />
@@ -199,11 +215,11 @@ jobs:
                 android:textSize="11sp"
                 android:padding="12dp"
                 android:layout_marginTop="16dp"
-                android:text="[System] Initializing Nova Titan Engine Service...\n[Ready] Ready to route AI requests." />
+                android:text="[System] Nova Titan Engine Ready.\n[Ports] 8080 (Titan), 8081 (Spark)." />
         </LinearLayout>
         EOF
 
-        # 6. MainActivity.java
+        # 7. MainActivity.java
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/MainActivity.java
         package com.novastudio24.titan.engine;
 
@@ -229,12 +245,11 @@ jobs:
                         btnRun.setText("STOP DUAL ENGINE SERVICE");
                         btnRun.setBackgroundColor(0xFFDA3633);
                         tvLogs.append("\n[+] Service Started on Ports 8080 & 8081.");
-                        tvLogs.append("\n[+] Firebase listener connected.");
                     } else {
                         isRunning = false;
                         btnRun.setText("START DUAL ENGINE SERVICE");
                         btnRun.setBackgroundColor(0xFF238636);
-                        tvLogs.append("\n[!] Engine Service Stopped.");
+                        tvLogs.append("\n[!] Service Stopped.");
                     }
                 });
             }
@@ -247,19 +262,19 @@ jobs:
     - name: Build Android APK
       run: |
         gradle wrapper --gradle-version 8.4
-        ./gradlew assembleDebug --no-daemon
+        ./gradlew assembleDebug --no-daemon --stacktrace
 
-    - name: Upload APK as Artifact
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Nova-Titan-Engine-APK
         path: app/build/outputs/apk/debug/app-debug.apk
 
-    - name: Create GitHub Release with APK
+    - name: Create Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
-        tag_name: v1.0.1
-        name: "Nova Titan Engine v1.0.1"
-        body: "APK Build for Nova Titan Engine (com.novastudio24.titan.engine) by Nova Studio 24."
+        tag_name: v1.0.2
+        name: "Nova Titan Engine v1.0.2"
+        body: "Production Engine APK by Nova Studio 24."
         files: app/build/outputs/apk/debug/app-debug.apk
