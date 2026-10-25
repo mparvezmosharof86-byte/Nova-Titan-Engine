@@ -22,9 +22,6 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
     - name: Scaffold Nova Titan Android Project
       run: |
         mkdir -p app/src/main/java/com/novastudio24/titan/engine
@@ -54,7 +51,7 @@ jobs:
         # 2. Root build.gradle
         cat << 'EOF' > build.gradle
         plugins {
-            id 'com.android.application' version '8.2.2' apply false
+            id 'com.android.application' version '8.1.4' apply false
         }
         EOF
 
@@ -80,6 +77,9 @@ jobs:
                 release {
                     minifyEnabled false
                 }
+                debug {
+                    debuggable true
+                }
             }
             compileOptions {
                 sourceCompatibility JavaVersion.VERSION_17
@@ -89,7 +89,7 @@ jobs:
 
         dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.11.0'
+            implementation 'com.google.android.material:material:1.10.0'
         }
         EOF
 
@@ -154,7 +154,6 @@ jobs:
                 android:textSize="12sp"
                 android:layout_marginBottom="24dp" />
 
-            <!-- Status Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -242,12 +241,15 @@ jobs:
         }
         EOF
 
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
     - name: Build Android APK
       run: |
-        gradle wrapper
-        ./gradlew assembleDebug --stacktrace
+        gradle wrapper --gradle-version 8.4
+        ./gradlew assembleDebug --no-daemon
 
-    - name: Upload APK as Release Artifact
+    - name: Upload APK as Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Nova-Titan-Engine-APK
@@ -257,7 +259,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
-        tag_name: v1.0.0
-        name: "Nova Titan Engine v1.0.0"
-        body: "Production Build for Nova Titan Engine (com.novastudio24.titan.engine) by Nova Studio 24."
+        tag_name: v1.0.1
+        name: "Nova Titan Engine v1.0.1"
+        body: "APK Build for Nova Titan Engine (com.novastudio24.titan.engine) by Nova Studio 24."
         files: app/build/outputs/apk/debug/app-debug.apk
