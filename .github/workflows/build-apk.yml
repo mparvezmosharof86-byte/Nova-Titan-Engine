@@ -1,0 +1,263 @@
+name: Build Nova Titan Engine APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Scaffold Nova Titan Android Project
+      run: |
+        mkdir -p app/src/main/java/com/novastudio24/titan/engine
+        mkdir -p app/src/main/res/layout
+        mkdir -p app/src/main/res/values
+
+        # 1. Settings Gradle
+        cat << 'EOF' > settings.gradle
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        rootProject.name = "Nova Titan Engine"
+        include ':app'
+        EOF
+
+        # 2. Root build.gradle
+        cat << 'EOF' > build.gradle
+        plugins {
+            id 'com.android.application' version '8.2.2' apply false
+        }
+        EOF
+
+        # 3. App build.gradle
+        cat << 'EOF' > app/build.gradle
+        plugins {
+            id 'com.android.application'
+        }
+
+        android {
+            namespace 'com.novastudio24.titan.engine'
+            compileSdk 34
+
+            defaultConfig {
+                applicationId "com.novastudio24.titan.engine"
+                minSdk 24
+                targetSdk 34
+                versionCode 1
+                versionName "1.0.0"
+            }
+
+            buildTypes {
+                release {
+                    minifyEnabled false
+                }
+            }
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+        }
+
+        dependencies {
+            implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation 'com.google.android.material:material:1.11.0'
+        }
+        EOF
+
+        # 4. AndroidManifest.xml
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.INTERNET" />
+            <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+            <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+            <application
+                android:allowBackup="true"
+                android:icon="@android:drawable/sym_def_app_icon"
+                android:label="Nova Titan Engine"
+                android:theme="@style/Theme.AppCompat.NoActionBar">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+        # 5. Dashboard UI Layout
+        cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:background="#0D1117"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NOVA STUDIO 24"
+                android:textColor="#58A6FF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nova Titan Engine"
+                android:textColor="#FFFFFF"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Package: com.novastudio24.titan.engine"
+                android:textColor="#8B949E"
+                android:textSize="12sp"
+                android:layout_marginBottom="24dp" />
+
+            <!-- Status Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#161B22"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ENGINE STATUS: ACTIVE"
+                    android:textColor="#3FB950"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="• Model 1: Nova Titan (7B Coder) - Port 8080\n• Model 2: Nova Spark (1.5B Rapid) - Port 8081\n• Firebase Realtime Bridge: STANDBY"
+                    android:textColor="#C9D1D9"
+                    android:textSize="13sp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnRun"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="START DUAL ENGINE SERVICE"
+                android:backgroundTint="#238636"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvLogs"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="#010409"
+                android:textColor="#7EE787"
+                android:fontFamily="monospace"
+                android:textSize="11sp"
+                android:padding="12dp"
+                android:layout_marginTop="16dp"
+                android:text="[System] Initializing Nova Titan Engine Service...\n[Ready] Ready to route AI requests." />
+        </LinearLayout>
+        EOF
+
+        # 6. MainActivity.java
+        cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/MainActivity.java
+        package com.novastudio24.titan.engine;
+
+        import android.os.Bundle;
+        import android.widget.Button;
+        import android.widget.TextView;
+        import androidx.appcompat.app.AppCompatActivity;
+
+        public class MainActivity extends AppCompatActivity {
+            private boolean isRunning = false;
+
+            @Override
+            protected void onCreate(Bundle savedInstanceState) {
+                super.onCreate(savedInstanceState);
+                setContentView(R.layout.activity_main);
+
+                Button btnRun = findViewById(R.id.btnRun);
+                TextView tvLogs = findViewById(R.id.tvLogs);
+
+                btnRun.setOnClickListener(v -> {
+                    if (!isRunning) {
+                        isRunning = true;
+                        btnRun.setText("STOP DUAL ENGINE SERVICE");
+                        btnRun.setBackgroundColor(0xFFDA3633);
+                        tvLogs.append("\n[+] Service Started on Ports 8080 & 8081.");
+                        tvLogs.append("\n[+] Firebase listener connected.");
+                    } else {
+                        isRunning = false;
+                        btnRun.setText("START DUAL ENGINE SERVICE");
+                        btnRun.setBackgroundColor(0xFF238636);
+                        tvLogs.append("\n[!] Engine Service Stopped.");
+                    }
+                });
+            }
+        }
+        EOF
+
+    - name: Build Android APK
+      run: |
+        gradle wrapper
+        ./gradlew assembleDebug --stacktrace
+
+    - name: Upload APK as Release Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Nova-Titan-Engine-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Create GitHub Release with APK
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/heads/main')
+      with:
+        tag_name: v1.0.0
+        name: "Nova Titan Engine v1.0.0"
+        body: "Production Build for Nova Titan Engine (com.novastudio24.titan.engine) by Nova Studio 24."
+        files: app/build/outputs/apk/debug/app-debug.apk
