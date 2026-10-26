@@ -31,12 +31,12 @@ jobs:
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-    - name: Clone & Compile C++ llama-server for Android ARM64
+    - name: Compile C++ Engine for Android ARM64
       run: |
         echo "[+] Cloning llama.cpp..."
         git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
 
-        echo "[+] Compiling Native C++ Engine with Android NDK..."
+        echo "[+] Compiling Native Engine with NDK..."
         NDK_PATH=$ANDROID_NDK_LATEST_HOME
         cmake -S llama.cpp -B llama.cpp/build-android \
           -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
@@ -51,11 +51,11 @@ jobs:
       run: |
         mkdir -p app/src/main/java/com/novastudio24/titan/engine
         mkdir -p app/src/main/res/layout
-        mkdir -p app/src/main/assets
+        mkdir -p app/src/main/jniLibs/arm64-v8a
 
-        # Compile করা আসল C++ ইঞ্জিনকে অ্যাপের assets-এ রাখা
-        cp llama.cpp/build-android/bin/llama-server app/src/main/assets/llama-server
-        chmod +x app/src/main/assets/llama-server
+        # আসল ইঞ্জিনকে Native Shared Library (libllama.so) হিসেবে রাখা (Android Permission Fix)
+        cp llama.cpp/build-android/bin/llama-server app/src/main/jniLibs/arm64-v8a/libllama.so
+        chmod 755 app/src/main/jniLibs/arm64-v8a/libllama.so
 
         # 1. Settings Gradle
         cat << 'EOF' > settings.gradle
@@ -84,7 +84,7 @@ jobs:
         }
         EOF
 
-        # 3. App build.gradle
+        # 3. App build.gradle (useLegacyPackaging allows Native Executable execution)
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application'
@@ -98,8 +98,17 @@ jobs:
                 applicationId "com.novastudio24.titan.engine"
                 minSdk 24
                 targetSdk 34
-                versionCode 2
-                versionName "2.0.0"
+                versionCode 3
+                versionName "2.1.0"
+                ndk {
+                    abiFilters 'arm64-v8a'
+                }
+            }
+
+            packagingOptions {
+                jniLibs {
+                    useLegacyPackaging = true
+                }
             }
 
             buildTypes {
@@ -121,7 +130,7 @@ jobs:
         }
         EOF
 
-        # 4. AndroidManifest.xml (Storage & Foreground Service Permissions)
+        # 4. AndroidManifest.xml
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -129,11 +138,10 @@ jobs:
             <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
             <uses-permission android:name="android.permission.WAKE_LOCK" />
             <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-            <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
             <application
                 android:allowBackup="true"
+                android:extractNativeLibs="true"
                 android:icon="@android:drawable/sym_def_app_icon"
                 android:label="Nova Titan Engine"
                 android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
@@ -179,7 +187,7 @@ jobs:
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Self-Contained Standalone C++ Engine"
+                android:text="Native Android JNI Engine Service"
                 android:textColor="#8B949E"
                 android:textSize="11sp"
                 android:layout_marginBottom="16dp" />
@@ -202,6 +210,7 @@ jobs:
                     android:textSize="14sp" />
 
                 <TextView
+                    android:id="@+id/tvModelPath"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Model Source: /sdcard/Download/NovaTitan/"
@@ -234,12 +243,12 @@ jobs:
                     android:fontFamily="monospace"
                     android:textSize="11sp"
                     android:padding="12dp"
-                    android:text="[System] Nova Titan Standalone Engine v2.0 Ready.\n[Storage] Place models in Download/NovaTitan/" />
+                    android:text="[System] Nova Titan Native Engine v2.1 Ready.\n[Native] Permission-Free JNI Execution Armed." />
             </ScrollView>
         </LinearLayout>
         EOF
 
-        # 6. MainActivity.java (Native Process Controller)
+        # 6. MainActivity.java (Native Library Execution - No Permission Denied)
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/MainActivity.java
         package com.novastudio24.titan.engine;
 
@@ -289,39 +298,30 @@ jobs:
             private void startNativeEngine() {
                 new Thread(() -> {
                     try {
-                        File binFile = new File(getFilesDir(), "llama-server");
-                        if (!binFile.exists() || binFile.length() == 0) {
-                            appendLog("[+] Extracting embedded C++ Engine into App Storage...");
-                            InputStream in = getAssets().open("llama-server");
-                            FileOutputStream out = new FileOutputStream(binFile);
-                            byte[] buffer = new byte[8192];
-                            int read;
-                            while ((read = in.read(buffer)) != -1) {
-                                out.write(buffer, 0, read);
-                            }
-                            in.close();
-                            out.close();
-                            binFile.setExecutable(true, false);
-                            appendLog("[+] C++ Engine Extracted and Ready!");
+                        // ১. অ্যান্ড্রয়েডের নিজস্ব অনুমোদিত নেটিভ ফোল্ডার থেকে ফাইল লোড
+                        String nativeLibDir = getApplicationInfo().nativeLibraryDir;
+                        File binFile = new File(nativeLibDir, "libllama.so");
+
+                        if (!binFile.exists()) {
+                            appendLog("[-] Native binary not found in: " + nativeLibDir);
+                            return;
                         }
 
-                        // মডেল লোকেশন চেক
+                        // ২. মডেল ফাইল চেক (আগে 1.5B খুঁজবে সেফটির জন্য)
                         File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
                         File modelFile = new File(downloadDir, "NovaTitan/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf");
                         
-                        // যদি 1.5B না পায়, 7B খুঁজবে
                         if (!modelFile.exists()) {
                             modelFile = new File(downloadDir, "NovaTitan/qwen2.5-coder-7b-instruct-q4_k_m.gguf");
                         }
 
                         if (!modelFile.exists()) {
-                            appendLog("[-] Error: Model file not found in: " + modelFile.getAbsolutePath());
-                            appendLog("[!] Please run work 1 (copy model to Download/NovaTitan)");
+                            appendLog("[-] Model not found in /sdcard/Download/NovaTitan/");
                             return;
                         }
 
                         appendLog("[+] Found Model: " + modelFile.getName());
-                        appendLog("[+] Launching C++ Engine directly from App on Port 8080...");
+                        appendLog("[+] Launching Native C++ Engine via Android System...");
 
                         ProcessBuilder pb = new ProcessBuilder(
                             binFile.getAbsolutePath(),
@@ -350,7 +350,7 @@ jobs:
                         }
 
                     } catch (Exception e) {
-                        appendLog("[-] Engine Exception: " + e.getMessage());
+                        appendLog("[-] Engine Error: " + e.getMessage());
                         stopNativeEngine();
                     }
                 }).start();
@@ -386,14 +386,14 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Nova-Titan-Native-Engine-v2
+        name: Nova-Titan-Native-Engine-v2.1
         path: app/build/outputs/apk/debug/app-debug.apk
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
-        tag_name: v2.0.0
-        name: "Nova Titan Native Engine v2.0.0"
-        body: "All-in-One Standalone C++ Engine APK (Zero Termux Required) by Nova Studio 24."
+        tag_name: v2.1.0
+        name: "Nova Titan Native Engine v2.1.0"
+        body: "Fully Native C++ Engine APK with Permission Denied Fix by Nova Studio 24."
         files: app/build/outputs/apk/debug/app-debug.apk
