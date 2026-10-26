@@ -53,12 +53,22 @@ jobs:
         mkdir -p app/src/main/res/layout
         mkdir -p app/src/main/jniLibs/arm64-v8a
 
-        # সব .so লাইব্রেরি কপি করা (libllama-server-impl.so সহ সবকিছু)
+        # সব .so লাইব্রেরি কপি করা
         find llama.cpp/build-android -name "*.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \;
         cp llama.cpp/build-android/bin/llama-server app/src/main/jniLibs/arm64-v8a/libserver.so
         chmod 755 app/src/main/jniLibs/arm64-v8a/*
 
-        # 1. Settings Gradle
+        # Debug Symbols ছেঁটে সাইজ ছোট করা (OutOfMemory Fix)
+        NDK_STRIP="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+        find app/src/main/jniLibs -name "*.so" -exec $NDK_STRIP --strip-unneeded {} + || true
+
+        # 1. Gradle Properties (৪ জিবি র‍্যাম বরাদ্দ)
+        cat << 'EOF' > gradle.properties
+        org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m
+        android.useAndroidX=true
+        EOF
+
+        # 2. Settings Gradle
         cat << 'EOF' > settings.gradle
         pluginManagement {
             repositories {
@@ -78,14 +88,14 @@ jobs:
         include ':app'
         EOF
 
-        # 2. Root build.gradle
+        # 3. Root build.gradle
         cat << 'EOF' > build.gradle
         plugins {
             id 'com.android.application' version '8.2.2' apply false
         }
         EOF
 
-        # 3. App build.gradle
+        # 4. App build.gradle
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application'
@@ -99,8 +109,8 @@ jobs:
                 applicationId "com.novastudio24.titan.engine"
                 minSdk 24
                 targetSdk 34
-                versionCode 6
-                versionName "3.0.1"
+                versionCode 7
+                versionName "3.0.2"
                 ndk {
                     abiFilters 'arm64-v8a'
                 }
@@ -131,7 +141,7 @@ jobs:
         }
         EOF
 
-        # 4. AndroidManifest.xml (Super-Strong 24/7 Permissions)
+        # 5. AndroidManifest.xml (Super-Strong 24/7 Permissions)
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -159,7 +169,6 @@ jobs:
                     </intent-filter>
                 </activity>
 
-                <!-- ২৪ ঘণ্টা সচল রাখার পার্মানেন্ট সার্ভিস -->
                 <service
                     android:name=".EngineService"
                     android:enabled="true"
@@ -169,7 +178,7 @@ jobs:
         </manifest>
         EOF
 
-        # 5. UI Layout
+        # 6. UI Layout
         cat << 'EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -260,7 +269,7 @@ jobs:
         </LinearLayout>
         EOF
 
-        # 6. EngineService.java (Fixed java.lang.Process Conflict)
+        # 7. EngineService.java
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/EngineService.java
         package com.novastudio24.titan.engine;
 
@@ -402,7 +411,7 @@ jobs:
         }
         EOF
 
-        # 7. MainActivity.java
+        # 8. MainActivity.java
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/MainActivity.java
         package com.novastudio24.titan.engine;
 
@@ -478,14 +487,14 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Nova-Titan-Native-Engine-v3.0.1
+        name: Nova-Titan-Native-Engine-v3.0.2
         path: app/build/outputs/apk/debug/app-debug.apk
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
-        tag_name: v3.0.1
-        name: "Nova Titan Native Engine v3.0.1"
-        body: "Fixed Java Process Conflict & 24/7 Foreground Service by Nova Studio 24."
+        tag_name: v3.0.2
+        name: "Nova Titan Native Engine v3.0.2"
+        body: "Optimized Strip & 4GB Heap 24/7 Engine APK by Nova Studio 24."
         files: app/build/outputs/apk/debug/app-debug.apk
