@@ -45,7 +45,7 @@ jobs:
           -DGGML_OPENMP=OFF \
           -DGGML_LLAMAFILE=OFF
 
-        cmake --build llama.cpp/build-android --config Release -j$(nproc)
+        cmake --build llama.cpp/build-android --config Release --target llama-server -j$(nproc)
 
     - name: Scaffold Nova Titan Ultra-Persistent Native Project
       run: |
@@ -58,11 +58,11 @@ jobs:
         cp llama.cpp/build-android/bin/llama-server app/src/main/jniLibs/arm64-v8a/libserver.so
         chmod 755 app/src/main/jniLibs/arm64-v8a/*
 
-        # Debug Symbols ছেঁটে সাইজ ছোট করা (OutOfMemory Fix)
+        # Debug Symbols ছেঁটে সাইজ ছোট করা
         NDK_STRIP="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
         find app/src/main/jniLibs -name "*.so" -exec $NDK_STRIP --strip-unneeded {} + || true
 
-        # 1. Gradle Properties (৪ জিবি র‍্যাম বরাদ্দ)
+        # 1. Gradle Properties
         cat << 'EOF' > gradle.properties
         org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m
         android.useAndroidX=true
@@ -109,8 +109,8 @@ jobs:
                 applicationId "com.novastudio24.titan.engine"
                 minSdk 24
                 targetSdk 34
-                versionCode 7
-                versionName "3.0.2"
+                versionCode 8
+                versionName "3.0.3"
                 ndk {
                     abiFilters 'arm64-v8a'
                 }
@@ -141,7 +141,7 @@ jobs:
         }
         EOF
 
-        # 5. AndroidManifest.xml (Super-Strong 24/7 Permissions)
+        # 5. AndroidManifest.xml (All Files Access Permission Added)
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -151,11 +151,16 @@ jobs:
             <uses-permission android:name="android.permission.WAKE_LOCK" />
             <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
             <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+            
+            <!-- Android 11+ All Files Access Permissions -->
+            <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
             <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
             <application
                 android:allowBackup="true"
                 android:extractNativeLibs="true"
+                android:requestLegacyExternalStorage="true"
                 android:icon="@android:drawable/sym_def_app_icon"
                 android:label="Nova Titan Engine"
                 android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
@@ -208,7 +213,7 @@ jobs:
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="24/7 Persistent Native Engine v3.0"
+                android:text="24/7 Persistent Native Engine v3.0.3"
                 android:textColor="#8B949E"
                 android:textSize="11sp"
                 android:layout_marginBottom="16dp" />
@@ -264,7 +269,7 @@ jobs:
                     android:fontFamily="monospace"
                     android:textSize="11sp"
                     android:padding="12dp"
-                    android:text="[System] Nova Titan v3.0 Armed.\n[Status] Notification Bar &amp; WakeLock Enabled." />
+                    android:text="[System] Nova Titan v3.0.3 Ready.\n[Storage] All-Files Access System Armed." />
             </ScrollView>
         </LinearLayout>
         EOF
@@ -411,13 +416,17 @@ jobs:
         }
         EOF
 
-        # 8. MainActivity.java
+        # 8. MainActivity.java (Auto-Open Permission Settings Dialog)
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/MainActivity.java
         package com.novastudio24.titan.engine;
 
         import android.app.Activity;
         import android.content.Intent;
+        import android.net.Uri;
+        import android.os.Build;
         import android.os.Bundle;
+        import android.os.Environment;
+        import android.provider.Settings;
         import android.widget.Button;
         import android.widget.TextView;
         import android.widget.ScrollView;
@@ -438,6 +447,7 @@ jobs:
                 tvEngineStatus = findViewById(R.id.tvEngineStatus);
                 scrollLogs = findViewById(R.id.scrollLogs);
 
+                checkAndRequestAllFilesPermission();
                 updateUIState(EngineService.isServiceRunning);
 
                 EngineService.logCallback = text -> runOnUiThread(() -> {
@@ -446,6 +456,12 @@ jobs:
                 });
 
                 btnRun.setOnClickListener(v -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+                        tvLogs.append("\n[!] Please grant 'All files access' in settings!");
+                        checkAndRequestAllFilesPermission();
+                        return;
+                    }
+
                     if (!EngineService.isServiceRunning) {
                         Intent serviceIntent = new Intent(this, EngineService.class);
                         startForegroundService(serviceIntent);
@@ -456,6 +472,21 @@ jobs:
                         updateUIState(false);
                     }
                 });
+            }
+
+            private void checkAndRequestAllFilesPermission() {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    if (!Environment.isExternalStorageManager()) {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                            intent.setData(Uri.parse("package:" + getPackageName()));
+                            startActivity(intent);
+                        } catch (Exception e) {
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                            startActivity(intent);
+                        }
+                    }
+                }
             }
 
             private void updateUIState(boolean isRunning) {
@@ -487,14 +518,14 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Nova-Titan-Native-Engine-v3.0.2
+        name: Nova-Titan-Native-Engine-v3.0.3
         path: app/build/outputs/apk/debug/app-debug.apk
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
-        tag_name: v3.0.2
-        name: "Nova Titan Native Engine v3.0.2"
-        body: "Optimized Strip & 4GB Heap 24/7 Engine APK by Nova Studio 24."
+        tag_name: v3.0.3
+        name: "Nova Titan Native Engine v3.0.3"
+        body: "All-Files Access Auto-Prompt System with Full Scoped Storage Fix by Nova Studio 24."
         files: app/build/outputs/apk/debug/app-debug.apk
