@@ -1,4 +1,4 @@
-name: Build Nova Titan Native Engine APK
+name: Build Nova Titan Master Engine APK
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
 
         cmake --build llama.cpp/build-android --config Release --target llama-server -j$(nproc)
 
-    - name: Scaffold Nova Titan Ultra-Persistent Native Project
+    - name: Scaffold Nova Titan Master Project
       run: |
         mkdir -p app/src/main/java/com/novastudio24/titan/engine
         mkdir -p app/src/main/res/layout
@@ -62,7 +62,7 @@ jobs:
         NDK_STRIP="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
         find app/src/main/jniLibs -name "*.so" -exec $NDK_STRIP --strip-unneeded {} + || true
 
-        # 1. Gradle Properties
+        # 1. Gradle Properties (৪ জিবি র‍্যাম বরাদ্দ)
         cat << 'EOF' > gradle.properties
         org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m
         android.useAndroidX=true
@@ -109,8 +109,8 @@ jobs:
                 applicationId "com.novastudio24.titan.engine"
                 minSdk 24
                 targetSdk 34
-                versionCode 8
-                versionName "3.0.3"
+                versionCode 10
+                versionName "4.0.0"
                 ndk {
                     abiFilters 'arm64-v8a'
                 }
@@ -137,11 +137,11 @@ jobs:
         }
 
         dependencies {
-            // Pure Native Android
+            // Pure Native Android Framework
         }
         EOF
 
-        # 5. AndroidManifest.xml (All Files Access Permission Added)
+        # 5. AndroidManifest.xml (Super-Strong 24/7 Permissions)
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -152,7 +152,6 @@ jobs:
             <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
             <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
             
-            <!-- Android 11+ All Files Access Permissions -->
             <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
             <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
             <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -183,7 +182,7 @@ jobs:
         </manifest>
         EOF
 
-        # 6. UI Layout
+        # 6. UI Layout (Includes Progress Bar for In-App Downloads)
         cat << 'EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -204,7 +203,7 @@ jobs:
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Nova Titan Native Engine"
+                android:text="Nova Titan Master Engine"
                 android:textColor="#FFFFFF"
                 android:textSize="22sp"
                 android:textStyle="bold"
@@ -213,18 +212,19 @@ jobs:
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="24/7 Persistent Native Engine v3.0.3"
+                android:text="v4.0.0 • Auto-Downloader &amp; Firebase 24/7"
                 android:textColor="#8B949E"
                 android:textSize="11sp"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="14dp" />
 
+            <!-- Status Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="#161B22"
                 android:orientation="vertical"
                 android:padding="14dp"
-                android:layout_marginBottom="14dp">
+                android:layout_marginBottom="12dp">
 
                 <TextView
                     android:id="@+id/tvEngineStatus"
@@ -239,9 +239,29 @@ jobs:
                     android:id="@+id/tvModelPath"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Source: /sdcard/Download/NovaTitan/"
+                    android:text="Firebase: nova-studio-24-default-rtdb"
                     android:textColor="#8B949E"
                     android:textSize="11sp"
+                    android:layout_marginTop="3dp" />
+
+                <!-- Download Progress Bar -->
+                <ProgressBar
+                    android:id="@+id/downloadProgressBar"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:layout_marginTop="10dp"
+                    android:max="100" />
+
+                <TextView
+                    android:id="@+id/tvDownloadStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Checking models..."
+                    android:textColor="#58A6FF"
+                    android:textSize="12sp"
+                    android:visibility="gone"
                     android:layout_marginTop="4dp" />
             </LinearLayout>
 
@@ -253,13 +273,22 @@ jobs:
                 android:textColor="#FFFFFF"
                 android:textStyle="bold" />
 
+            <Button
+                android:id="@+id/btnDownloadModels"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="DOWNLOAD / SYNC BOTH MODELS"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#21262D"
+                android:layout_marginTop="6dp" />
+
             <ScrollView
                 android:id="@+id/scrollLogs"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:background="#010409"
-                android:layout_marginTop="14dp">
+                android:layout_marginTop="12dp">
 
                 <TextView
                     android:id="@+id/tvLogs"
@@ -269,12 +298,12 @@ jobs:
                     android:fontFamily="monospace"
                     android:textSize="11sp"
                     android:padding="12dp"
-                    android:text="[System] Nova Titan v3.0.3 Ready.\n[Storage] All-Files Access System Armed." />
+                    android:text="[System] Nova Titan Master Engine v4.0.0 Armed.\n[Engine] Auto-Downloader &amp; Firebase Bridge Ready." />
             </ScrollView>
         </LinearLayout>
         EOF
 
-        # 7. EngineService.java
+        # 7. EngineService.java (C++ Engine + Firebase Realtime Sync Bridge)
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/EngineService.java
         package com.novastudio24.titan.engine;
 
@@ -286,9 +315,16 @@ jobs:
         import android.os.IBinder;
         import android.os.PowerManager;
         import java.io.*;
+        import java.net.HttpURLConnection;
+        import java.net.URL;
+        import java.util.Iterator;
+        import org.json.JSONArray;
+        import org.json.JSONObject;
 
         public class EngineService extends Service {
             private static final String CHANNEL_ID = "nova_titan_engine_channel";
+            private static final String FIREBASE_URL = "https://nova-studio-24-default-rtdb.firebaseio.com";
+            
             private java.lang.Process nativeProcess;
             private PowerManager.WakeLock wakeLock;
 
@@ -313,7 +349,7 @@ jobs:
 
                 Notification notification = new Notification.Builder(this, CHANNEL_ID)
                         .setContentTitle("Nova Titan Engine is ACTIVE")
-                        .setContentText("Local AI Server Listening on Port 8080 (24/7)")
+                        .setContentText("Local C++ Engine & Firebase Bridge Running 24/7")
                         .setSmallIcon(android.R.drawable.stat_notify_sync)
                         .setContentIntent(pendingIntent)
                         .setOngoing(true)
@@ -332,6 +368,7 @@ jobs:
                 }
 
                 startEngineProcess();
+                startFirebaseBridgeListener();
                 return START_STICKY;
             }
 
@@ -348,7 +385,7 @@ jobs:
                         }
 
                         if (!modelFile.exists()) {
-                            if (logCallback != null) logCallback.onLog("[-] Model not found in /sdcard/Download/NovaTitan/");
+                            if (logCallback != null) logCallback.onLog("[-] Model not found! Please tap 'Download / Sync Both Models'");
                             return;
                         }
 
@@ -381,6 +418,132 @@ jobs:
                         if (logCallback != null) logCallback.onLog("[-] Engine Exception: " + e.getMessage());
                     }
                 }).start();
+            }
+
+            // ==========================================
+            // Firebase Realtime Listener Loop
+            // ==========================================
+            private void startFirebaseBridgeListener() {
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(4000);
+                    } catch (InterruptedException ignored) {}
+
+                    if (logCallback != null) logCallback.onLog("[Firebase] Connected to Database! Actively listening...");
+
+                    while (isServiceRunning) {
+                        try {
+                            URL url = new URL(FIREBASE_URL + "/requests/pending.json");
+                            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                            conn.setRequestMethod("GET");
+                            conn.setConnectTimeout(6000);
+                            conn.setReadTimeout(6000);
+
+                            if (conn.getResponseCode() == 200) {
+                                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                                StringBuilder sb = new StringBuilder();
+                                String l;
+                                while ((l = br.readLine()) != null) sb.append(l);
+                                br.close();
+
+                                String resText = sb.toString().trim();
+                                if (!resText.equals("null") && !resText.isEmpty()) {
+                                    JSONObject pendingList = new JSONObject(resText);
+                                    Iterator<String> keys = pendingList.keys();
+
+                                    while (keys.hasNext()) {
+                                        String reqId = keys.next();
+                                        JSONObject reqObj = pendingList.getJSONObject(reqId);
+                                        String userId = reqObj.optString("user_id", "anonymous");
+                                        String prompt = reqObj.optString("prompt", "");
+
+                                        if (logCallback != null) logCallback.onLog("[Firebase] Query from " + userId + ": " + prompt);
+
+                                        String aiCode = callLocalAiEngine(prompt);
+
+                                        JSONObject completed = new JSONObject();
+                                        completed.put("user_id", userId);
+                                        completed.put("response", aiCode);
+                                        completed.put("status", "done");
+                                        completed.put("timestamp", System.currentTimeMillis() / 1000);
+
+                                        URL putUrl = new URL(FIREBASE_URL + "/requests/completed/" + reqId + ".json");
+                                        HttpURLConnection putConn = (HttpURLConnection) putUrl.openConnection();
+                                        putConn.setRequestMethod("PUT");
+                                        putConn.setDoOutput(true);
+                                        putConn.setRequestProperty("Content-Type", "application/json");
+                                        OutputStream os = putConn.getOutputStream();
+                                        os.write(completed.toString().getBytes("UTF-8"));
+                                        os.close();
+                                        putConn.getResponseCode();
+                                        putConn.disconnect();
+
+                                        URL delUrl = new URL(FIREBASE_URL + "/requests/pending/" + reqId + ".json");
+                                        HttpURLConnection delConn = (HttpURLConnection) delUrl.openConnection();
+                                        delConn.setRequestMethod("DELETE");
+                                        delConn.getResponseCode();
+                                        delConn.disconnect();
+
+                                        if (logCallback != null) logCallback.onLog("[Firebase] Completed & sent back: " + reqId);
+                                    }
+                                }
+                            }
+                            conn.disconnect();
+
+                        } catch (Exception ignored) {}
+
+                        try {
+                            Thread.sleep(1500);
+                        } catch (InterruptedException ignored) {}
+                    }
+                }).start();
+            }
+
+            private String callLocalAiEngine(String userPrompt) {
+                try {
+                    URL url = new URL("http://127.0.0.1:8080/v1/chat/completions");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setDoOutput(true);
+                    conn.setConnectTimeout(8000);
+                    conn.setReadTimeout(120000);
+
+                    JSONObject payload = new JSONObject();
+                    payload.put("model", "qwen2.5-coder");
+                    payload.put("temperature", 0.2);
+                    payload.put("max_tokens", 2048);
+
+                    JSONArray messages = new JSONArray();
+                    JSONObject sys = new JSONObject();
+                    sys.put("role", "system");
+                    sys.put("content", "You are Nova Titan Coder by Nova Studio 24. Write complete, production-ready code.");
+                    messages.put(sys);
+
+                    JSONObject user = new JSONObject();
+                    user.put("role", "user");
+                    user.put("content", userPrompt);
+                    messages.put(user);
+
+                    payload.put("messages", messages);
+
+                    OutputStream os = conn.getOutputStream();
+                    os.write(payload.toString().getBytes("UTF-8"));
+                    os.close();
+
+                    if (conn.getResponseCode() == 200) {
+                        BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                        StringBuilder sb = new StringBuilder();
+                        String l;
+                        while ((l = br.readLine()) != null) sb.append(l);
+                        br.close();
+                        JSONObject res = new JSONObject(sb.toString());
+                        return res.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content");
+                    }
+                } catch (Exception e) {
+                    return "Engine Error: " + e.getMessage();
+                }
+                return "Error: Local Engine didn't return output.";
             }
 
             @Override
@@ -416,7 +579,7 @@ jobs:
         }
         EOF
 
-        # 8. MainActivity.java (Auto-Open Permission Settings Dialog)
+        # 8. MainActivity.java (Auto-Downloader for Both Models + Controller)
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/MainActivity.java
         package com.novastudio24.titan.engine;
 
@@ -427,15 +590,25 @@ jobs:
         import android.os.Bundle;
         import android.os.Environment;
         import android.provider.Settings;
+        import android.view.View;
         import android.widget.Button;
+        import android.widget.ProgressBar;
         import android.widget.TextView;
         import android.widget.ScrollView;
         import android.graphics.Color;
+        import java.io.*;
+        import java.net.HttpURLConnection;
+        import java.net.URL;
 
         public class MainActivity extends Activity {
-            private TextView tvLogs, tvEngineStatus;
-            private Button btnRun;
+            private TextView tvLogs, tvEngineStatus, tvDownloadStatus;
+            private Button btnRun, btnDownloadModels;
+            private ProgressBar downloadProgressBar;
             private ScrollView scrollLogs;
+            private boolean isDownloading = false;
+
+            private static final String MODEL_SPARK_URL = "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf";
+            private static final String MODEL_TITAN_URL = "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf";
 
             @Override
             protected void onCreate(Bundle savedInstanceState) {
@@ -443,11 +616,15 @@ jobs:
                 setContentView(R.layout.activity_main);
 
                 btnRun = findViewById(R.id.btnRun);
+                btnDownloadModels = findViewById(R.id.btnDownloadModels);
                 tvLogs = findViewById(R.id.tvLogs);
                 tvEngineStatus = findViewById(R.id.tvEngineStatus);
+                tvDownloadStatus = findViewById(R.id.tvDownloadStatus);
+                downloadProgressBar = findViewById(R.id.downloadProgressBar);
                 scrollLogs = findViewById(R.id.scrollLogs);
 
                 checkAndRequestAllFilesPermission();
+                checkExistingModels();
                 updateUIState(EngineService.isServiceRunning);
 
                 EngineService.logCallback = text -> runOnUiThread(() -> {
@@ -472,6 +649,114 @@ jobs:
                         updateUIState(false);
                     }
                 });
+
+                btnDownloadModels.setOnClickListener(v -> {
+                    if (!isDownloading) {
+                        startDownloadBothModels();
+                    }
+                });
+            }
+
+            private void checkExistingModels() {
+                File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                File sparkFile = new File(downloadDir, "NovaTitan/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf");
+                File titanFile = new File(downloadDir, "NovaTitan/qwen2.5-coder-7b-instruct-q4_k_m.gguf");
+
+                if (sparkFile.exists() && titanFile.exists()) {
+                    tvLogs.append("\n[+] Both Nova Spark (1.5B) & Nova Titan (7B) detected!");
+                } else if (sparkFile.exists()) {
+                    tvLogs.append("\n[+] Nova Spark (1.5B) detected! (7B missing)");
+                } else {
+                    tvLogs.append("\n[!] Models missing! Tap 'Download / Sync Both Models' to download.");
+                }
+            }
+
+            private void startDownloadBothModels() {
+                isDownloading = true;
+                downloadProgressBar.setVisibility(View.VISIBLE);
+                tvDownloadStatus.setVisibility(View.VISIBLE);
+                btnDownloadModels.setEnabled(false);
+
+                new Thread(() -> {
+                    File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    File dir = new File(downloadDir, "NovaTitan");
+                    if (!dir.exists()) dir.mkdirs();
+
+                    File sparkFile = new File(dir, "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf");
+                    File titanFile = new File(dir, "qwen2.5-coder-7b-instruct-q4_k_m.gguf");
+
+                    // ১. ডাউনলোড মডেল ১ (Nova Spark 1.5B)
+                    if (!sparkFile.exists()) {
+                        downloadSingleModel("Nova Spark (1.5B)", MODEL_SPARK_URL, sparkFile);
+                    } else {
+                        runOnUiThread(() -> tvLogs.append("\n[+] Model 1: Nova Spark already downloaded!"));
+                    }
+
+                    // ২. ডাউনলোড মডেল ২ (Nova Titan 7B)
+                    if (!titanFile.exists()) {
+                        downloadSingleModel("Nova Titan (7B)", MODEL_TITAN_URL, titanFile);
+                    } else {
+                        runOnUiThread(() -> tvLogs.append("\n[+] Model 2: Nova Titan already downloaded!"));
+                    }
+
+                    runOnUiThread(() -> {
+                        isDownloading = false;
+                        downloadProgressBar.setVisibility(View.GONE);
+                        tvDownloadStatus.setText("All Models Ready!");
+                        btnDownloadModels.setEnabled(true);
+                        tvLogs.append("\n[SUCCESS] Both AI Models are 100% Ready in Storage!");
+                    });
+                }).start();
+            }
+
+            private void downloadSingleModel(String modelName, String downloadUrl, File outputFile) {
+                try {
+                    runOnUiThread(() -> tvLogs.append("\n[+] Downloading " + modelName + " directly from Cloud..."));
+                    URL url = new URL(downloadUrl);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setInstanceFollowRedirects(true);
+                    conn.connect();
+
+                    // রিডাইরেক্ট হ্যান্ডেল করা (Hugging Face CDN)
+                    int responseCode = conn.getResponseCode();
+                    if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == 307 || responseCode == 308) {
+                        String newUrl = conn.getHeaderField("Location");
+                        conn = (HttpURLConnection) new URL(newUrl).openConnection();
+                        conn.connect();
+                    }
+
+                    int fileLength = conn.getContentLength();
+                    InputStream input = new BufferedInputStream(conn.getInputStream());
+                    OutputStream output = new FileOutputStream(outputFile);
+
+                    byte[] data = new byte[8192];
+                    long total = 0;
+                    int count;
+
+                    while ((count = input.read(data)) != -1) {
+                        total += count;
+                        if (fileLength > 0) {
+                            final int progress = (int) (total * 100 / fileLength);
+                            final long totalMB = total / (1024 * 1024);
+                            final long fileLengthMB = fileLength / (1024 * 1024);
+                            runOnUiThread(() -> {
+                                downloadProgressBar.setProgress(progress);
+                                tvDownloadStatus.setText(modelName + ": " + totalMB + "MB / " + fileLengthMB + "MB (" + progress + "%)");
+                            });
+                        }
+                        output.write(data, 0, count);
+                    }
+
+                    output.flush();
+                    output.close();
+                    input.close();
+                    conn.disconnect();
+
+                    runOnUiThread(() -> tvLogs.append("\n[✔] " + modelName + " Download Complete!"));
+
+                } catch (Exception e) {
+                    runOnUiThread(() -> tvLogs.append("\n[-] Download Error for " + modelName + ": " + e.getMessage()));
+                }
             }
 
             private void checkAndRequestAllFilesPermission() {
@@ -518,14 +803,14 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Nova-Titan-Native-Engine-v3.0.3
+        name: Nova-Titan-Master-Engine-v4.0.0
         path: app/build/outputs/apk/debug/app-debug.apk
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
-        tag_name: v3.0.3
-        name: "Nova Titan Native Engine v3.0.3"
-        body: "All-Files Access Auto-Prompt System with Full Scoped Storage Fix by Nova Studio 24."
+        tag_name: v4.0.0
+        name: "Nova Titan Master Engine v4.0.0"
+        body: "Master Release: In-App Dual Model Auto-Downloader + Direct Firebase 24/7 Sync by Nova Studio 24."
         files: app/build/outputs/apk/debug/app-debug.apk
