@@ -31,7 +31,7 @@ jobs:
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-    - name: Compile C++ Engine for Android ARM64
+    - name: Compile C++ Engine & All Shared Libraries
       run: |
         echo "[+] Cloning llama.cpp..."
         git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
@@ -45,17 +45,18 @@ jobs:
           -DGGML_OPENMP=OFF \
           -DGGML_LLAMAFILE=OFF
 
-        cmake --build llama.cpp/build-android --config Release --target llama-server -j$(nproc)
+        cmake --build llama.cpp/build-android --config Release -j$(nproc)
 
-    - name: Scaffold Nova Titan Native Project
+    - name: Scaffold Nova Titan Ultra-Persistent Native Project
       run: |
         mkdir -p app/src/main/java/com/novastudio24/titan/engine
         mkdir -p app/src/main/res/layout
         mkdir -p app/src/main/jniLibs/arm64-v8a
 
-        # আসল ইঞ্জিনকে Native Shared Library (libllama.so) হিসেবে রাখা (Android Permission Fix)
-        cp llama.cpp/build-android/bin/llama-server app/src/main/jniLibs/arm64-v8a/libllama.so
-        chmod 755 app/src/main/jniLibs/arm64-v8a/libllama.so
+        # সব .so লাইব্রেরি কপি করা (libllama-server-impl.so সহ সবকিছু)
+        find llama.cpp/build-android -name "*.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \;
+        cp llama.cpp/build-android/bin/llama-server app/src/main/jniLibs/arm64-v8a/libserver.so
+        chmod 755 app/src/main/jniLibs/arm64-v8a/*
 
         # 1. Settings Gradle
         cat << 'EOF' > settings.gradle
@@ -84,7 +85,7 @@ jobs:
         }
         EOF
 
-        # 3. App build.gradle (useLegacyPackaging allows Native Executable execution)
+        # 3. App build.gradle
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application'
@@ -98,8 +99,8 @@ jobs:
                 applicationId "com.novastudio24.titan.engine"
                 minSdk 24
                 targetSdk 34
-                versionCode 3
-                versionName "2.1.0"
+                versionCode 5
+                versionName "3.0.0"
                 ndk {
                     abiFilters 'arm64-v8a'
                 }
@@ -126,17 +127,20 @@ jobs:
         }
 
         dependencies {
-            // Pure Native Android Framework
+            // Pure Native Android
         }
         EOF
 
-        # 4. AndroidManifest.xml
+        # 4. AndroidManifest.xml (Super-Strong 24/7 Permissions)
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET" />
             <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+            <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
             <uses-permission android:name="android.permission.WAKE_LOCK" />
+            <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+            <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
             <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
             <application
@@ -145,6 +149,7 @@ jobs:
                 android:icon="@android:drawable/sym_def_app_icon"
                 android:label="Nova Titan Engine"
                 android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
                 <activity
                     android:name=".MainActivity"
                     android:exported="true">
@@ -153,6 +158,13 @@ jobs:
                         <category android:name="android.intent.category.LAUNCHER" />
                     </intent-filter>
                 </activity>
+
+                <!-- ২৪ ঘণ্টা সচল রাখার পার্মানেন্ট সার্ভিস -->
+                <service
+                    android:name=".EngineService"
+                    android:enabled="true"
+                    android:exported="false"
+                    android:foregroundServiceType="dataSync" />
             </application>
         </manifest>
         EOF
@@ -187,7 +199,7 @@ jobs:
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Native Android JNI Engine Service"
+                android:text="24/7 Persistent Native Engine v3.0"
                 android:textColor="#8B949E"
                 android:textSize="11sp"
                 android:layout_marginBottom="16dp" />
@@ -213,7 +225,7 @@ jobs:
                     android:id="@+id/tvModelPath"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Model Source: /sdcard/Download/NovaTitan/"
+                    android:text="Source: /sdcard/Download/NovaTitan/"
                     android:textColor="#8B949E"
                     android:textSize="11sp"
                     android:layout_marginTop="4dp" />
@@ -223,7 +235,7 @@ jobs:
                 android:id="@+id/btnRun"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="START NATIVE C++ ENGINE"
+                android:text="START 24/7 NATIVE ENGINE"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold" />
 
@@ -243,27 +255,161 @@ jobs:
                     android:fontFamily="monospace"
                     android:textSize="11sp"
                     android:padding="12dp"
-                    android:text="[System] Nova Titan Native Engine v2.1 Ready.\n[Native] Permission-Free JNI Execution Armed." />
+                    android:text="[System] Nova Titan v3.0 Armed.\n[Status] Notification Bar &amp; WakeLock Enabled." />
             </ScrollView>
         </LinearLayout>
         EOF
 
-        # 6. MainActivity.java (Native Library Execution - No Permission Denied)
+        # 6. EngineService.java (24/7 Foreground Service with Notification)
+        cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/EngineService.java
+        package com.novastudio24.titan.engine;
+
+        import android.app.*;
+        import android.content.Intent;
+        import android.os.*;
+        import java.io.*;
+
+        public class EngineService extends Service {
+            private static final String CHANNEL_ID = "nova_titan_engine_channel";
+            private Process nativeProcess;
+            private PowerManager.WakeLock wakeLock;
+
+            public interface LogCallback {
+                void onLog(String log);
+            }
+            public static LogCallback logCallback;
+            public static boolean isServiceRunning = false;
+
+            @Override
+            public void onCreate() {
+                super.onCreate();
+                createNotificationChannel();
+            }
+
+            @Override
+            public int onStartCommand(Intent intent, int flags, int startId) {
+                isServiceRunning = true;
+
+                // নোটিফিকেশন তৈরি
+                Intent notifIntent = new Intent(this, MainActivity.class);
+                PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notifIntent, PendingIntent.FLAG_IMMUTABLE);
+
+                Notification notification = new Notification.Builder(this, CHANNEL_ID)
+                        .setContentTitle("Nova Titan Engine is ACTIVE")
+                        .setContentText("Local AI Server Listening on Port 8080 (24/7)")
+                        .setSmallIcon(android.R.drawable.stat_notify_sync)
+                        .setContentIntent(pendingIntent)
+                        .setOngoing(true)
+                        .build();
+
+                startForeground(1001, notification);
+
+                // WakeLock যাতে স্ক্রিন বন্ধ হলেও প্রসেসর চালু থাকে
+                PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+                if (pm != null) {
+                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "NovaTitan:EngineWakeLock");
+                    wakeLock.acquire();
+                }
+
+                startEngineProcess();
+                return START_STICKY; // ফোন মেমোরি খালি করলেও স্বয়ংক্রিয়ভাবে আবার রিস্টার্ট হবে
+            }
+
+            private void startEngineProcess() {
+                new Thread(() -> {
+                    try {
+                        String nativeLibDir = getApplicationInfo().nativeLibraryDir;
+                        File binFile = new File(nativeLibDir, "libserver.so");
+
+                        File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                        File modelFile = new File(downloadDir, "NovaTitan/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf");
+                        if (!modelFile.exists()) {
+                            modelFile = new File(downloadDir, "NovaTitan/qwen2.5-coder-7b-instruct-q4_k_m.gguf");
+                        }
+
+                        if (!modelFile.exists()) {
+                            if (logCallback != null) logCallback.onLog("[-] Model not found in /sdcard/Download/NovaTitan/");
+                            return;
+                        }
+
+                        if (logCallback != null) {
+                            logCallback.onLog("[+] Found Model: " + modelFile.getName());
+                            logCallback.onLog("[+] Launching 24/7 Engine on Port 8080...");
+                        }
+
+                        ProcessBuilder pb = new ProcessBuilder(
+                            binFile.getAbsolutePath(),
+                            "-m", modelFile.getAbsolutePath(),
+                            "-c", "2048",
+                            "-b", "128",
+                            "-t", "4",
+                            "--host", "127.0.0.1",
+                            "--port", "8080"
+                        );
+
+                        // সব সহযোগী লাইব্রেরির পথ যুক্ত করা (Dependency Linker)
+                        pb.environment().put("LD_LIBRARY_PATH", nativeLibDir);
+                        pb.redirectErrorStream(true);
+                        nativeProcess = pb.start();
+
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(nativeProcess.getInputStream()));
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            if (logCallback != null) logCallback.onLog(line);
+                        }
+
+                    } catch (Exception e) {
+                        if (logCallback != null) logCallback.onLog("[-] Engine Exception: " + e.getMessage());
+                    }
+                }).start();
+            }
+
+            @Override
+            public void onDestroy() {
+                super.onDestroy();
+                isServiceRunning = false;
+                if (nativeProcess != null) {
+                    nativeProcess.destroy();
+                }
+                if (wakeLock != null && wakeLock.isHeld()) {
+                    wakeLock.release();
+                }
+                stopForeground(true);
+            }
+
+            @Override
+            public IBinder onBind(Intent intent) {
+                return null;
+            }
+
+            private void createNotificationChannel() {
+                NotificationChannel channel = new NotificationChannel(
+                        CHANNEL_ID,
+                        "Nova Titan Background Engine",
+                        NotificationManager.IMPORTANCE_LOW
+                );
+                channel.setDescription("Keeps the AI Engine running continuously in the background.");
+                NotificationManager manager = getSystemService(NotificationManager.class);
+                if (manager != null) {
+                    manager.createNotificationChannel(channel);
+                }
+            }
+        }
+        EOF
+
+        # 7. MainActivity.java (Service Controller)
         cat << 'EOF' > app/src/main/java/com/novastudio24/titan/engine/MainActivity.java
         package com.novastudio24.titan.engine;
 
         import android.app.Activity;
-        import android.os.Bundle;
-        import android.os.Environment;
+        import android.content.Intent;
+        import android.os.*;
         import android.widget.Button;
         import android.widget.TextView;
         import android.widget.ScrollView;
         import android.graphics.Color;
-        import java.io.*;
 
         public class MainActivity extends Activity {
-            private boolean isRunning = false;
-            private Process nativeProcess;
             private TextView tvLogs, tvEngineStatus;
             private Button btnRun;
             private ScrollView scrollLogs;
@@ -277,104 +423,46 @@ jobs:
                 tvLogs = findViewById(R.id.tvLogs);
                 tvEngineStatus = findViewById(R.id.tvEngineStatus);
                 scrollLogs = findViewById(R.id.scrollLogs);
-                btnRun.setBackgroundColor(Color.parseColor("#238636"));
 
-                btnRun.setOnClickListener(v -> {
-                    if (!isRunning) {
-                        startNativeEngine();
-                    } else {
-                        stopNativeEngine();
-                    }
-                });
-            }
+                updateUIState(EngineService.isServiceRunning);
 
-            private void appendLog(final String text) {
-                runOnUiThread(() -> {
+                // লগ লিসেনার
+                EngineService.logCallback = text -> runOnUiThread(() -> {
                     tvLogs.append("\n" + text);
                     scrollLogs.post(() -> scrollLogs.fullScroll(ScrollView.FOCUS_DOWN));
                 });
-            }
 
-            private void startNativeEngine() {
-                new Thread(() -> {
-                    try {
-                        // ১. অ্যান্ড্রয়েডের নিজস্ব অনুমোদিত নেটিভ ফোল্ডার থেকে ফাইল লোড
-                        String nativeLibDir = getApplicationInfo().nativeLibraryDir;
-                        File binFile = new File(nativeLibDir, "libllama.so");
-
-                        if (!binFile.exists()) {
-                            appendLog("[-] Native binary not found in: " + nativeLibDir);
-                            return;
-                        }
-
-                        // ২. মডেল ফাইল চেক (আগে 1.5B খুঁজবে সেফটির জন্য)
-                        File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-                        File modelFile = new File(downloadDir, "NovaTitan/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf");
-                        
-                        if (!modelFile.exists()) {
-                            modelFile = new File(downloadDir, "NovaTitan/qwen2.5-coder-7b-instruct-q4_k_m.gguf");
-                        }
-
-                        if (!modelFile.exists()) {
-                            appendLog("[-] Model not found in /sdcard/Download/NovaTitan/");
-                            return;
-                        }
-
-                        appendLog("[+] Found Model: " + modelFile.getName());
-                        appendLog("[+] Launching Native C++ Engine via Android System...");
-
-                        ProcessBuilder pb = new ProcessBuilder(
-                            binFile.getAbsolutePath(),
-                            "-m", modelFile.getAbsolutePath(),
-                            "-c", "2048",
-                            "-b", "128",
-                            "-t", "4",
-                            "--host", "127.0.0.1",
-                            "--port", "8080"
-                        );
-                        pb.redirectErrorStream(true);
-                        nativeProcess = pb.start();
-                        isRunning = true;
-
-                        runOnUiThread(() -> {
-                            btnRun.setText("STOP NATIVE ENGINE");
-                            btnRun.setBackgroundColor(Color.parseColor("#DA3633"));
-                            tvEngineStatus.setText("ENGINE STATUS: ONLINE (Port 8080)");
-                            tvEngineStatus.setTextColor(Color.parseColor("#3FB950"));
-                        });
-
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(nativeProcess.getInputStream()));
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            appendLog(line);
-                        }
-
-                    } catch (Exception e) {
-                        appendLog("[-] Engine Error: " + e.getMessage());
-                        stopNativeEngine();
+                btnRun.setOnClickListener(v -> {
+                    if (!EngineService.isServiceRunning) {
+                        Intent serviceIntent = new Intent(this, EngineService.class);
+                        startForegroundService(serviceIntent);
+                        updateUIState(true);
+                    } else {
+                        Intent serviceIntent = new Intent(this, EngineService.class);
+                        stopService(serviceIntent);
+                        updateUIState(false);
                     }
-                }).start();
+                });
             }
 
-            private void stopNativeEngine() {
-                if (nativeProcess != null) {
-                    nativeProcess.destroy();
-                    nativeProcess = null;
-                }
-                isRunning = false;
-                runOnUiThread(() -> {
-                    btnRun.setText("START NATIVE C++ ENGINE");
+            private void updateUIState(boolean isRunning) {
+                if (isRunning) {
+                    btnRun.setText("STOP 24/7 NATIVE ENGINE");
+                    btnRun.setBackgroundColor(Color.parseColor("#DA3633"));
+                    tvEngineStatus.setText("ENGINE STATUS: 24/7 ACTIVE (Port 8080)");
+                    tvEngineStatus.setTextColor(Color.parseColor("#3FB950"));
+                } else {
+                    btnRun.setText("START 24/7 NATIVE ENGINE");
                     btnRun.setBackgroundColor(Color.parseColor("#238636"));
                     tvEngineStatus.setText("ENGINE STATUS: STOPPED");
                     tvEngineStatus.setTextColor(Color.parseColor("#F0883E"));
-                    appendLog("[!] Engine Stopped.");
-                });
+                }
             }
 
             @Override
             protected void onDestroy() {
                 super.onDestroy();
-                stopNativeEngine();
+                EngineService.logCallback = null;
             }
         }
         EOF
@@ -386,14 +474,14 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Nova-Titan-Native-Engine-v2.1
+        name: Nova-Titan-Native-Engine-v3
         path: app/build/outputs/apk/debug/app-debug.apk
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
-        tag_name: v2.1.0
-        name: "Nova Titan Native Engine v2.1.0"
-        body: "Fully Native C++ Engine APK with Permission Denied Fix by Nova Studio 24."
+        tag_name: v3.0.0
+        name: "Nova Titan Native Engine v3.0.0 (24/7 Service)"
+        body: "Ultra-Persistent 24/7 Background Engine with Linked Libraries and Ongoing Notification by Nova Studio 24."
         files: app/build/outputs/apk/debug/app-debug.apk
